@@ -22,7 +22,6 @@ Implementor's notes:
    correctness is not guaranteed.  I am to blame for any errors.
 
 TODO:
- * Clean up the code.
  * Make it go fast.
  * Support detached signatures.
 
