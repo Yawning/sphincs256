@@ -18,6 +18,7 @@ import (
 
 const (
 	Size = 32
+	MsgSize = 64
 	hashc = "expand 32-byte to 64-byte state!"
 )
 

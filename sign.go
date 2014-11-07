@@ -10,19 +10,18 @@ import (
 	"io"
 
 	"github.com/yawning/sphincs256/hash"
+	"github.com/yawning/sphincs256/horst"
 	"github.com/yawning/sphincs256/utils"
 )
 
 const (
-	bigintBytes = (totalTreeHeight - subtreeHeight + 7) / 8
-
 	// PublicKeySize is the length of a SPHINCS-256 public key in bytes.
 	PublicKeySize = (nMasks + 1) * hashBytes
 
 	// PrivateKeySize is the length of a SPINCS-256 private key in bytes.
 	PrivateKeySize = seedBytes + PublicKeySize - hashBytes + skRandSeedBytes
 
-	cryptoBytes = messageHashSeedBytes + (totalTreeHeight+7)/8 + horstSigBytes + (totalTreeHeight/subtreeHeight)*wotsSigBytes + totalTreeHeight*hashBytes
+	cryptoBytes = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wotsSigBytes + totalTreeHeight*hashBytes
 )
 
 type leafaddr struct {
@@ -212,7 +211,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 
 	var leafidx uint64
 	var r [messageHashSeedBytes]byte
-	var mH [msgHashBytes]byte
+	var mH [hash.MsgSize]byte
 	var tsk [PrivateKeySize]byte
 	var root [hashBytes]byte
 	var seed [seedBytes]byte
@@ -279,7 +278,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 
 	getSeed(seed[:], tsk[:], &a)
 	var horstSigbytes uint64
-	horstSign(sm, &root, &horstSigbytes, m, &seed, masks[:], mH[:])
+	horst.Sign(sm, &root, &horstSigbytes, m, &seed, masks[:], mH[:])
 
 	sm = sm[horstSigbytes:]
 	smlen += int(horstSigbytes)
@@ -325,7 +324,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	var root [hashBytes]byte
 	var sig [cryptoBytes]byte
 	var tpk [PublicKeySize]byte
-	var mH [msgHashBytes]byte
+	var mH [hash.MsgSize]byte
 
 	if smlen < cryptoBytes {
 		return nil, fmt.Errorf("sphincs256: message length is too short to be valid")
@@ -366,13 +365,13 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	}
 
 	// XXX/Yawning: Check the return value?
-	horstVerify(root[:], sigp[(totalTreeHeight+7)/8:], sigp[cryptoBytes-messageHashSeedBytes:], tpk[:], mH[:])
+	horst.Verify(root[:], sigp[(totalTreeHeight+7)/8:], sigp[cryptoBytes-messageHashSeedBytes:], tpk[:], mH[:])
 
 	sigp = sigp[(totalTreeHeight+7)/8:]
 	smlen -= (totalTreeHeight + 7) / 8
 
-	sigp = sigp[horstSigBytes:]
-	smlen -= horstSigBytes
+	sigp = sigp[horst.SigBytes:]
+	smlen -= horst.SigBytes
 
 	for i := 0; i < nLevels; i++ {
 		wotsVerify(&wotsPk, sigp, &root, tpk[:])
