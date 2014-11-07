@@ -4,36 +4,40 @@
 // theory SHA256/SHA512 can also be used, however this implementation uses
 // BLAKE256/BLAKE512 to be consistent with the original.
 
-package sphincs256
+// Package hash implements the various hash functions used by the SPHINCS-256
+// HORST and WOTS signature schemes.
+package hash
 
 import (
 	"github.com/dchest/blake256"
 	"github.com/dchest/blake512"
 
 	"github.com/yawning/sphincs256/chacha"
+	"github.com/yawning/sphincs256/utils"
 )
 
 const (
+	Size = 32
 	hashc = "expand 32-byte to 64-byte state!"
 )
 
-func varlenHash(out, in []byte) {
+func Varlen(out, in []byte) {
 	h := blake256.New()
 	h.Write(in)
 	tmp := h.Sum(nil)
 	copy(out[:], tmp[:])
-	zerobytes(tmp[:])
+	utils.Zerobytes(tmp[:])
 }
 
-func msgHash(out, in []byte) {
+func Msg(out, in []byte) {
 	h := blake512.New()
 	h.Write(in)
 	tmp := h.Sum(nil)
 	copy(out[:], tmp[:])
-	zerobytes(tmp[:])
+	utils.Zerobytes(tmp[:])
 }
 
-func hash2nN(out, in []byte) {
+func Hash_2n_n(out, in []byte) {
 	var x [64]byte
 	for i := 0; i < 32; i++ {
 		x[i] = in[i]
@@ -49,15 +53,15 @@ func hash2nN(out, in []byte) {
 	}
 }
 
-func hash2nNMask(out, in, mask []byte) {
-	var buf [2 * hashBytes]byte
+func Hash_2n_n_mask(out, in, mask []byte) {
+	var buf [2 * Size]byte
 	for i := 0; i < len(buf); i++ {
 		buf[i] = in[i] ^ mask[i]
 	}
-	hash2nN(out, buf[:])
+	Hash_2n_n(out, buf[:])
 }
 
-func hashNN(out, in []byte) {
+func Hash_n_n(out, in []byte) {
 	var x [64]byte
 	for i := 0; i < 32; i++ {
 		x[i] = in[i]
@@ -69,16 +73,10 @@ func hashNN(out, in []byte) {
 	}
 }
 
-func hashNNMask(out, in, mask []byte) {
-	var buf [hashBytes]byte
+func Hash_n_n_mask(out, in, mask []byte) {
+	var buf [Size]byte
 	for i := 0; i < len(buf); i++ {
 		buf[i] = in[i] ^ mask[i]
 	}
-	hashNN(out, buf[:])
-}
-
-func init() {
-	if hashBytes != 32 {
-		panic("Current code only supports 32-byte hashes")
-	}
+	Hash_n_n(out, buf[:])
 }

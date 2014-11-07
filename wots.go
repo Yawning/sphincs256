@@ -2,7 +2,10 @@
 
 package sphincs256
 
-import "github.com/yawning/sphincs256/chacha"
+import (
+	"github.com/yawning/sphincs256/chacha"
+	"github.com/yawning/sphincs256/hash"
+)
 
 func wotsExpandSeed(outseeds []byte, inseed []byte) {
 	outseeds = outseeds[:wotsL*hashBytes]
@@ -20,7 +23,7 @@ func genChain(out, seed []byte, masks []byte, chainlen int) {
 	}
 	for i := 0; i < chainlen && i < wotsW; i++ {
 		mask := masks[i*hashBytes:]
-		hashNNMask(out[:], out[:], mask)
+		hash.Hash_n_n_mask(out[:], out[:], mask)
 	}
 }
 

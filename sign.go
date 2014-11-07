@@ -8,6 +8,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/yawning/sphincs256/hash"
+	"github.com/yawning/sphincs256/utils"
 )
 
 const (
@@ -47,14 +50,14 @@ func getSeed(seed, sk []byte, a *leafaddr) {
 	for i := uint64(0); i < 8; i++ {
 		buffer[seedBytes+i] = byte((t >> (8 * i)) & 0xff)
 	}
-	varlenHash(seed, buffer[:])
+	hash.Varlen(seed, buffer[:])
 }
 
 func lTree(leaf, wotsPk, masks []byte) {
 	l := wotsL
 	for i := 0; i < wotsLogL; i++ {
 		for j := 0; j < l>>1; j++ {
-			hash2nNMask(wotsPk[j*hashBytes:], wotsPk[j*2*hashBytes:], masks[i*2*hashBytes:])
+			hash.Hash_2n_n_mask(wotsPk[j*hashBytes:], wotsPk[j*2*hashBytes:], masks[i*2*hashBytes:])
 		}
 
 		if l&1 != 0 {
@@ -91,7 +94,7 @@ func treehash(node []byte, height int, sk []byte, leaf *leafaddr, masks []byte) 
 		for stackoffset > 1 && stacklevels[stackoffset-1] == stacklevels[stackoffset-2] {
 			// Masks.
 			maskoffset = 2 * (stacklevels[stackoffset-1] + wotsLogL) * hashBytes
-			hash2nNMask(stack[(stackoffset-2)*hashBytes:], stack[(stackoffset-2)*hashBytes:], masks[maskoffset:])
+			hash.Hash_2n_n_mask(stack[(stackoffset-2)*hashBytes:], stack[(stackoffset-2)*hashBytes:], masks[maskoffset:])
 			stacklevels[stackoffset-2]++
 			stackoffset--
 		}
@@ -124,12 +127,12 @@ func validateAuthpath(root, leaf *[hashBytes]byte, leafidx uint, authpath, masks
 	for i := uint(0); i < height-1; i++ {
 		leafidx >>= 1
 		if leafidx&1 != 0 {
-			hash2nNMask(buffer[hashBytes:], buffer[:], masks[2*(wotsLogL+i)*hashBytes:])
+			hash.Hash_2n_n_mask(buffer[hashBytes:], buffer[:], masks[2*(wotsLogL+i)*hashBytes:])
 			for j := 0; j < hashBytes; j++ {
 				buffer[j] = authpath[j]
 			}
 		} else {
-			hash2nNMask(buffer[:], buffer[:], masks[2*(wotsLogL+i)*hashBytes:])
+			hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(wotsLogL+i)*hashBytes:])
 			for j := 0; j < hashBytes; j++ {
 				buffer[hashBytes+j] = authpath[j]
 			}
@@ -137,7 +140,7 @@ func validateAuthpath(root, leaf *[hashBytes]byte, leafidx uint, authpath, masks
 		}
 		authpath = authpath[hashBytes:]
 	}
-	hash2nNMask(root[:], buffer[:], masks[2*(wotsLogL+height-1)*hashBytes:])
+	hash.Hash_2n_n_mask(root[:], buffer[:], masks[2*(wotsLogL+height-1)*hashBytes:])
 }
 
 func computeAuthpathWots(root *[hashBytes]byte, authpath []byte, a *leafaddr, sk, masks []byte, height uint) {
@@ -161,7 +164,7 @@ func computeAuthpathWots(root *[hashBytes]byte, authpath []byte, a *leafaddr, sk
 	level := 0
 	for i := 1 << subtreeHeight; i > 0; i >>= 1 {
 		for j := 0; j < i; j += 2 {
-			hash2nNMask(tree[(i>>1)*hashBytes+(j>>1)*hashBytes:], tree[i*hashBytes+j*hashBytes:], masks[2*(wotsLogL+level)*hashBytes:])
+			hash.Hash_2n_n_mask(tree[(i>>1)*hashBytes+(j>>1)*hashBytes:], tree[i*hashBytes+j*hashBytes:], masks[2*(wotsLogL+level)*hashBytes:])
 		}
 		level++
 	}
@@ -233,7 +236,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		// XXX/Yawning: The original code doesn't do endian conversion when
 		// using rnd.  This is probably wrong, so do the Right Thing(TM).
 		var rnd [64]byte
-		msgHash(rnd[:], scratch[:skRandSeedBytes+mlen]) // XXX: Why Blake 512?
+		hash.Msg(rnd[:], scratch[:skRandSeedBytes+mlen]) // XXX: Why Blake 512?
 
 		leafidx = binary.LittleEndian.Uint64(rnd[0:]) & 0xfffffffffffffff
 		copy(r[:], rnd[16:])
@@ -251,7 +254,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		treehash(pk[nMasks*hashBytes:], subtreeHeight, tsk[:], &a, pk)
 
 		// Message already on the right spot.
-		msgHash(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
+		hash.Msg(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
 	}
 
 	// Use unique value $d$ for HORST address.
@@ -299,7 +302,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 
 	smlen += mlen
 
-	zerobytes(tsk[:])
+	utils.Zerobytes(tsk[:])
 
 	if smlen != smlenExpected {
 		panic("signature length mismatch")
@@ -351,7 +354,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 		// Copy Public Key.
 		copy(scratch[messageHashSeedBytes:], tpk[:])
 
-		msgHash(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
+		hash.Msg(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
 	}
 	sigp := sig[:]
 
