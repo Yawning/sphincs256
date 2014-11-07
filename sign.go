@@ -17,12 +17,13 @@ import (
 
 const (
 	// PublicKeySize is the length of a SPHINCS-256 public key in bytes.
-	PublicKeySize = (nMasks + 1) * hashBytes
+	PublicKeySize = (nMasks + 1) * hash.Size
 
-	// PrivateKeySize is the length of a SPINCS-256 private key in bytes.
-	PrivateKeySize = seedBytes + PublicKeySize - hashBytes + skRandSeedBytes
+	// PrivateKeySize is the length of a SPHINCS-256 private key in bytes.
+	PrivateKeySize = seedBytes + PublicKeySize - hash.Size + skRandSeedBytes
 
-	cryptoBytes = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wots.SigBytes + totalTreeHeight*hashBytes
+	// SignatureSize is the length of a SPHINCS-256 signature in bytes.
+	SignatureSize = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wots.SigBytes + totalTreeHeight*hash.Size
 )
 
 type leafaddr struct {
@@ -57,22 +58,22 @@ func lTree(leaf, wotsPk, masks []byte) {
 	l := wots.L
 	for i := 0; i < wots.LogL; i++ {
 		for j := 0; j < l>>1; j++ {
-			hash.Hash_2n_n_mask(wotsPk[j*hashBytes:], wotsPk[j*2*hashBytes:], masks[i*2*hashBytes:])
+			hash.Hash_2n_n_mask(wotsPk[j*hash.Size:], wotsPk[j*2*hash.Size:], masks[i*2*hash.Size:])
 		}
 
 		if l&1 != 0 {
-			copy(wotsPk[(l>>1)*hashBytes:((l>>1)+1)*hashBytes], wotsPk[(l-1)*hashBytes:])
+			copy(wotsPk[(l>>1)*hash.Size:((l>>1)+1)*hash.Size], wotsPk[(l-1)*hash.Size:])
 			l = (l >> 1) + 1
 		} else {
 			l = l >> 1
 		}
 	}
-	copy(leaf[:hashBytes], wotsPk[:])
+	copy(leaf[:hash.Size], wotsPk[:])
 }
 
 func genLeafWots(leaf, masks, sk []byte, a *leafaddr) {
 	var seed [seedBytes]byte
-	var pk [wots.L * hashBytes]byte
+	var pk [wots.L * hash.Size]byte
 
 	getSeed(seed[:], sk, a)
 	wots.Pkgen(pk[:], seed[:], masks)
@@ -81,90 +82,90 @@ func genLeafWots(leaf, masks, sk []byte, a *leafaddr) {
 
 func treehash(node []byte, height int, sk []byte, leaf *leafaddr, masks []byte) {
 	a := *leaf
-	stack := make([]byte, (height+1)*hashBytes)
+	stack := make([]byte, (height+1)*hash.Size)
 	stacklevels := make([]uint, height+1)
 	var stackoffset, maskoffset uint
 
 	lastnode := a.subleaf + (1 << uint(height))
 
 	for ; a.subleaf < lastnode; a.subleaf++ {
-		genLeafWots(stack[stackoffset*hashBytes:], masks, sk, &a)
+		genLeafWots(stack[stackoffset*hash.Size:], masks, sk, &a)
 		stacklevels[stackoffset] = 0
 		stackoffset++
 		for stackoffset > 1 && stacklevels[stackoffset-1] == stacklevels[stackoffset-2] {
 			// Masks.
-			maskoffset = 2 * (stacklevels[stackoffset-1] + wots.LogL) * hashBytes
-			hash.Hash_2n_n_mask(stack[(stackoffset-2)*hashBytes:], stack[(stackoffset-2)*hashBytes:], masks[maskoffset:])
+			maskoffset = 2 * (stacklevels[stackoffset-1] + wots.LogL) * hash.Size
+			hash.Hash_2n_n_mask(stack[(stackoffset-2)*hash.Size:], stack[(stackoffset-2)*hash.Size:], masks[maskoffset:])
 			stacklevels[stackoffset-2]++
 			stackoffset--
 		}
 	}
-	for i := 0; i < hashBytes; i++ {
+	for i := 0; i < hash.Size; i++ {
 		node[i] = stack[i]
 	}
 }
 
-func validateAuthpath(root, leaf *[hashBytes]byte, leafidx uint, authpath, masks []byte, height uint) {
-	var buffer [2 * hashBytes]byte
+func validateAuthpath(root, leaf *[hash.Size]byte, leafidx uint, authpath, masks []byte, height uint) {
+	var buffer [2 * hash.Size]byte
 
 	if leafidx&1 != 0 {
-		for j := 0; j < hashBytes; j++ {
-			buffer[hashBytes+j] = leaf[j]
+		for j := 0; j < hash.Size; j++ {
+			buffer[hash.Size+j] = leaf[j]
 		}
-		for j := 0; j < hashBytes; j++ {
+		for j := 0; j < hash.Size; j++ {
 			buffer[j] = authpath[j]
 		}
 	} else {
-		for j := 0; j < hashBytes; j++ {
+		for j := 0; j < hash.Size; j++ {
 			buffer[j] = leaf[j]
 		}
-		for j := 0; j < hashBytes; j++ {
-			buffer[hashBytes+j] = authpath[j]
+		for j := 0; j < hash.Size; j++ {
+			buffer[hash.Size+j] = authpath[j]
 		}
 	}
-	authpath = authpath[hashBytes:]
+	authpath = authpath[hash.Size:]
 
 	for i := uint(0); i < height-1; i++ {
 		leafidx >>= 1
 		if leafidx&1 != 0 {
-			hash.Hash_2n_n_mask(buffer[hashBytes:], buffer[:], masks[2*(wots.LogL+i)*hashBytes:])
-			for j := 0; j < hashBytes; j++ {
+			hash.Hash_2n_n_mask(buffer[hash.Size:], buffer[:], masks[2*(wots.LogL+i)*hash.Size:])
+			for j := 0; j < hash.Size; j++ {
 				buffer[j] = authpath[j]
 			}
 		} else {
-			hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(wots.LogL+i)*hashBytes:])
-			for j := 0; j < hashBytes; j++ {
-				buffer[hashBytes+j] = authpath[j]
+			hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(wots.LogL+i)*hash.Size:])
+			for j := 0; j < hash.Size; j++ {
+				buffer[hash.Size+j] = authpath[j]
 			}
 
 		}
-		authpath = authpath[hashBytes:]
+		authpath = authpath[hash.Size:]
 	}
-	hash.Hash_2n_n_mask(root[:], buffer[:], masks[2*(wots.LogL+height-1)*hashBytes:])
+	hash.Hash_2n_n_mask(root[:], buffer[:], masks[2*(wots.LogL+height-1)*hash.Size:])
 }
 
-func computeAuthpathWots(root *[hashBytes]byte, authpath []byte, a *leafaddr, sk, masks []byte, height uint) {
+func computeAuthpathWots(root *[hash.Size]byte, authpath []byte, a *leafaddr, sk, masks []byte, height uint) {
 	ta := *a
-	var tree [2 * (1 << subtreeHeight) * hashBytes]byte
+	var tree [2 * (1 << subtreeHeight) * hash.Size]byte
 	var seed [(1 << subtreeHeight) * seedBytes]byte
-	var pk [(1 << subtreeHeight) * wots.L * hashBytes]byte
+	var pk [(1 << subtreeHeight) * wots.L * hash.Size]byte
 
 	// Level 0.
 	for ta.subleaf = 0; ta.subleaf < 1<<subtreeHeight; ta.subleaf++ {
 		getSeed(seed[ta.subleaf*seedBytes:], sk, &ta)
 	}
 	for ta.subleaf = 0; ta.subleaf < 1<<subtreeHeight; ta.subleaf++ {
-		wots.Pkgen(pk[ta.subleaf*wots.L*hashBytes:], seed[ta.subleaf*seedBytes:], masks)
+		wots.Pkgen(pk[ta.subleaf*wots.L*hash.Size:], seed[ta.subleaf*seedBytes:], masks)
 	}
 	for ta.subleaf = 0; ta.subleaf < 1<<subtreeHeight; ta.subleaf++ {
-		lTree(tree[(1<<subtreeHeight)*hashBytes+ta.subleaf*hashBytes:], pk[ta.subleaf*wots.L*hashBytes:], masks)
+		lTree(tree[(1<<subtreeHeight)*hash.Size+ta.subleaf*hash.Size:], pk[ta.subleaf*wots.L*hash.Size:], masks)
 	}
 
 	// Tree.
 	level := 0
 	for i := 1 << subtreeHeight; i > 0; i >>= 1 {
 		for j := 0; j < i; j += 2 {
-			hash.Hash_2n_n_mask(tree[(i>>1)*hashBytes+(j>>1)*hashBytes:], tree[i*hashBytes+j*hashBytes:], masks[2*(wots.LogL+level)*hashBytes:])
+			hash.Hash_2n_n_mask(tree[(i>>1)*hash.Size+(j>>1)*hash.Size:], tree[i*hash.Size+j*hash.Size:], masks[2*(wots.LogL+level)*hash.Size:])
 		}
 		level++
 	}
@@ -172,13 +173,13 @@ func computeAuthpathWots(root *[hashBytes]byte, authpath []byte, a *leafaddr, sk
 	// Copy authpath.
 	idx := a.subleaf
 	for i := uint(0); i < height; i++ {
-		dst := authpath[i*hashBytes : (i+1)*hashBytes]
-		src := tree[((1<<subtreeHeight)>>i)*hashBytes+((idx>>i)^1)*hashBytes:]
+		dst := authpath[i*hash.Size : (i+1)*hash.Size]
+		src := tree[((1<<subtreeHeight)>>i)*hash.Size+((idx>>i)^1)*hash.Size:]
 		copy(dst[:], src[:])
 	}
 
 	// Copy root.
-	copy(root[:], tree[hashBytes:])
+	copy(root[:], tree[hash.Size:])
 }
 
 // GenerateKey generates a public/private key pair using randomness from rand.
@@ -189,13 +190,13 @@ func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, privateKey *[P
 	if err != nil {
 		return nil, nil, err
 	}
-	copy(publicKey[:nMasks*hashBytes], privateKey[seedBytes:])
+	copy(publicKey[:nMasks*hash.Size], privateKey[seedBytes:])
 
 	// Initialization of top-subtree address.
 	a := leafaddr{level: nLevels - 1, subtree: 0, subleaf: 0}
 
 	// Construct top subtree.
-	treehash(publicKey[nMasks*hashBytes:], subtreeHeight, privateKey[:], &a, publicKey[:])
+	treehash(publicKey[nMasks*hash.Size:], subtreeHeight, privateKey[:], &a, publicKey[:])
 	return
 }
 
@@ -205,7 +206,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 	// Figure out how long the returned buffer needs to be, and rename some
 	// things to match crypto_sign.
 	mlen := len(message)
-	smlenExpected := cryptoBytes + mlen
+	smlenExpected := SignatureSize + mlen
 	sm := make([]byte, smlenExpected)
 	m := message
 	ret := sm
@@ -214,9 +215,9 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 	var r [messageHashSeedBytes]byte
 	var mH [hash.MsgSize]byte
 	var tsk [PrivateKeySize]byte
-	var root [hashBytes]byte
+	var root [hash.Size]byte
 	var seed [seedBytes]byte
-	var masks [nMasks * hashBytes]byte
+	var masks [nMasks * hash.Size]byte
 	for i := 0; i < PrivateKeySize; i++ {
 		tsk[i] = privateKey[i]
 	}
@@ -224,7 +225,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 	// Create leafidx deterministically.
 	{
 		// Shift scratch upwards so we can reuse msg later.
-		scratch := sm[cryptoBytes-skRandSeedBytes:]
+		scratch := sm[SignatureSize-skRandSeedBytes:]
 
 		// Copy message to scratch backwards to handle m = sm overlap.
 		for i := mlen; i > 0; i-- {
@@ -242,7 +243,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		copy(r[:], rnd[16:])
 
 		// Prepare msgHash
-		scratch = sm[cryptoBytes-messageHashSeedBytes-PublicKeySize:]
+		scratch = sm[SignatureSize-messageHashSeedBytes-PublicKeySize:]
 
 		// Copy R.
 		copy(scratch[:], r[:])
@@ -250,8 +251,8 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		// Construct and copy pk.
 		a := leafaddr{level: nLevels - 1, subtree: 0, subleaf: 0}
 		pk := scratch[messageHashSeedBytes:]
-		copy(pk[:nMasks*hashBytes], tsk[seedBytes:])
-		treehash(pk[nMasks*hashBytes:], subtreeHeight, tsk[:], &a, pk)
+		copy(pk[:nMasks*hash.Size], tsk[seedBytes:])
+		treehash(pk[nMasks*hash.Size:], subtreeHeight, tsk[:], &a, pk)
 
 		// Message already on the right spot.
 		hash.Msg(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
@@ -293,8 +294,8 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		smlen += wots.SigBytes
 
 		computeAuthpathWots(&root, sm, &a, tsk[:], masks[:], subtreeHeight)
-		sm = sm[subtreeHeight*hashBytes:]
-		smlen += subtreeHeight * hashBytes
+		sm = sm[subtreeHeight*hash.Size:]
+		smlen += subtreeHeight * hash.Size
 
 		a.subleaf = int(a.subtree & ((1 << subtreeHeight) - 1))
 		a.subtree >>= subtreeHeight
@@ -317,17 +318,17 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	sm := message
 	smlen := len(message)
 	pk := publicKey[:]
-	mlen := smlen - cryptoBytes
+	mlen := smlen - SignatureSize
 
 	var leafidx uint64
-	var wotsPk [wots.L * hashBytes]byte
-	var pkhash [hashBytes]byte
-	var root [hashBytes]byte
-	var sig [cryptoBytes]byte
+	var wotsPk [wots.L * hash.Size]byte
+	var pkhash [hash.Size]byte
+	var root [hash.Size]byte
+	var sig [SignatureSize]byte
 	var tpk [PublicKeySize]byte
 	var mH [hash.MsgSize]byte
 
-	if smlen < cryptoBytes {
+	if smlen < SignatureSize {
 		return nil, fmt.Errorf("sphincs256: message length is too short to be valid")
 	}
 	m := make([]byte, smlen)
@@ -346,7 +347,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 		scratch := m
 
 		copy(sig[:], sm[:])
-		copy(scratch[messageHashSeedBytes+PublicKeySize:], sm[cryptoBytes:cryptoBytes+mlen])
+		copy(scratch[messageHashSeedBytes+PublicKeySize:], sm[SignatureSize:SignatureSize+mlen])
 
 		// Copy R.
 		copy(scratch[:], r[:])
@@ -366,7 +367,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	}
 
 	// XXX/Yawning: Check the return value?
-	horst.Verify(root[:], sigp[(totalTreeHeight+7)/8:], sigp[cryptoBytes-messageHashSeedBytes:], tpk[:], mH[:])
+	horst.Verify(root[:], sigp[(totalTreeHeight+7)/8:], sigp[SignatureSize-messageHashSeedBytes:], tpk[:], mH[:])
 
 	sigp = sigp[(totalTreeHeight+7)/8:]
 	smlen -= (totalTreeHeight + 7) / 8
@@ -384,12 +385,12 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 		validateAuthpath(&root, &pkhash, uint(leafidx&0x1f), sigp, tpk[:], subtreeHeight)
 		leafidx >>= 5
 
-		sigp = sigp[subtreeHeight*hashBytes:]
-		smlen -= subtreeHeight * hashBytes
+		sigp = sigp[subtreeHeight*hash.Size:]
+		smlen -= subtreeHeight * hash.Size
 	}
 
-	for i := 0; i < hashBytes; i++ {
-		if root[i] != tpk[i+nMasks*hashBytes] {
+	for i := 0; i < hash.Size; i++ {
+		if root[i] != tpk[i+nMasks*hash.Size] {
 			goto fail
 		}
 	}
@@ -417,18 +418,18 @@ func init() {
 	if nLevels > 15 || nLevels < 8 {
 		// XXX/Yawning: The original code's compile time check for this
 		// invariant is broken.
-		panic("need to have 8 <= nLevels <= 15")
+		panic("need to have 8 <= N_LEVELS <= 15")
 	}
 	if subtreeHeight != 5 {
-		panic("need to have subtreeHeight == 5")
+		panic("need to have SUBTREE_HEIGHT == 5")
 	}
 	if totalTreeHeight != 60 {
-		panic("need to have totalTreeHeight == 60")
+		panic("need to have TOTALTREE_HEIGHT == 60")
 	}
-	if seedBytes != hashBytes {
-		panic("need to have seedBytes == hashBytes")
+	if seedBytes != hash.Size {
+		panic("need to have SEED_BYTES == HASH_BYTES")
 	}
 	if messageHashSeedBytes != 32 {
-		panic("need to have messageHashSeedBytes == 32")
+		panic("need to have MESSAGE_HASH_SEED_BYTES == 32")
 	}
 }

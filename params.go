@@ -34,7 +34,7 @@ const (
 	wotsSigBytes = wotsL * hashBytes
 	*/
 
-	hashBytes    = 32 // Has to be log(horstT)*horstK/8
+//	hashBytes    = 32 // Has to be log(horstT)*horstK/8
 //	msgHashBytes = 64
 
 	nMasks = 2 * horst.LogT // has to be the max of (2*(subtreeHeight+wotsLogL)) and (wotsW-1) and 2*horstLogT
