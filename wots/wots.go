@@ -21,15 +21,14 @@ const (
 )
 
 func expandSeed(outseeds []byte, inseed []byte) {
-	outseeds = outseeds[:L*hash.Size]
-	inseed = inseed[:SeedBytes]
-
-	chacha.Prg(outseeds, inseed[:])
+//	outseeds = outseeds[:L*hash.Size]
+//	inseed = inseed[:SeedBytes]
+	chacha.Prg(outseeds[0:L*hash.Size], inseed[0:SeedBytes])
 }
 
 func genChain(out, seed []byte, masks []byte, chainlen int) {
-	out = out[:hash.Size]
-	seed = seed[:hash.Size]
+//	out = out[:hash.Size]
+//	seed = seed[:hash.Size]
 
 	copy(out[0:hash.Size], seed[0:hash.Size])
 	for i := 0; i < chainlen && i < W; i++ {
@@ -39,9 +38,9 @@ func genChain(out, seed []byte, masks []byte, chainlen int) {
 }
 
 func Pkgen(pk []byte, sk []byte, masks []byte) {
-	pk = pk[:L*hash.Size]
-	sk = sk[:SeedBytes]
-	masks = masks[:(W-1)*hash.Size]
+//	pk = pk[:L*hash.Size]
+//	sk = sk[:SeedBytes]
+//	masks = masks[:(W-1)*hash.Size]
 
 	expandSeed(pk, sk)
 	for i := 0; i < L; i++ {
@@ -50,8 +49,8 @@ func Pkgen(pk []byte, sk []byte, masks []byte) {
 }
 
 func Sign(sig []byte, msg *[hash.Size]byte, sk *[SeedBytes]byte, masks []byte) {
-	sig = sig[:L*hash.Size]
-	masks = masks[:(W-1)*hash.Size]
+//	sig = sig[:L*hash.Size]
+//	masks = masks[:(W-1)*hash.Size]
 
 	var basew [L]int
 	var c, i int
@@ -98,8 +97,8 @@ func Sign(sig []byte, msg *[hash.Size]byte, sk *[SeedBytes]byte, masks []byte) {
 }
 
 func Verify(pk *[L * hash.Size]byte, sig []byte, msg *[hash.Size]byte, masks []byte) {
-	sig = sig[:L*hash.Size]
-	masks = masks[:(W-1)*hash.Size]
+//	sig = sig[:L*hash.Size]
+//	masks = masks[:(W-1)*hash.Size]
 
 	var basew [L]int
 	var c, i int

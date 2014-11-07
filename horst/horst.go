@@ -5,6 +5,7 @@ package horst
 import (
 	"github.com/yawning/sphincs256/chacha"
 	"github.com/yawning/sphincs256/hash"
+	"github.com/yawning/sphincs256/utils"
 )
 
 const (
@@ -17,19 +18,19 @@ const (
 	SigBytes = 64*hash.Size + (((LogT-6)*hash.Size)+SkBytes)*K
 )
 
-func horstExpandSeed(outseeds []byte, inseed *[SeedBytes]byte) {
-	outseeds = outseeds[:T*SkBytes]
-	chacha.Prg(outseeds, inseed[:])
+func expandSeed(outseeds []byte, inseed *[SeedBytes]byte) {
+//	outseeds = outseeds[:T*SkBytes]
+	chacha.Prg(outseeds[0:T*SkBytes], inseed[:])
 }
 
 func Sign(sig []byte, pk *[hash.Size]byte, m []byte, seed *[SeedBytes]byte, masks []byte, mHash []byte) {
-	masks = masks[:2*LogT*hash.Size]
-	mHash = mHash[:hash.MsgSize]
+//	masks = masks[:2*LogT*hash.Size]
+//	mHash = mHash[:hash.MsgSize]
 
 	var sk [T * SkBytes]byte
 	sigpos := 0
 
-	horstExpandSeed(sk[:], seed)
+	expandSeed(sk[:], seed)
 
 	// Build the whole tree and save it.
 	var tree [(2*T - 1) * hash.Size]byte // replace by something more memory-efficient?
@@ -50,7 +51,7 @@ func Sign(sig []byte, pk *[hash.Size]byte, m []byte, seed *[SeedBytes]byte, mask
 
 	// First write 64 hashes from level 10 to the signature.
 	copy(sig[0:64*hash.Size], tree[63*hash.Size:127*hash.Size])
-	sigpos += 64*hash.Size
+	sigpos += 64 * hash.Size
 
 	// Signature consists of horstK parts; each part of secret key and
 	// LogT-4 auth-path hashes.
@@ -78,8 +79,8 @@ func Sign(sig []byte, pk *[hash.Size]byte, m []byte, seed *[SeedBytes]byte, mask
 }
 
 func Verify(pk, sig, m, masks, mHash []byte) int {
-	masks = masks[:2*LogT*hash.Size]
-	mHash = mHash[:hash.MsgSize]
+//	masks = masks[:2*LogT*hash.Size]
+//	mHash = mHash[:hash.MsgSize]
 
 	// XXX/Yawning: I have no idea why this has a clear cutfail case and a
 	// return value if the calling code doesn't ever actually check it.
@@ -144,14 +145,11 @@ func Verify(pk, sig, m, masks, mHash []byte) int {
 	}
 	// Hash from level 15 to 16
 	hash.Hash_2n_n_mask(pk, buffer[:], masks[2*(LogT-1)*hash.Size:])
-	masks = masks[:2*LogT*hash.Size]
 
 	return 0
 
 fail:
-	for k := 0; k < hash.Size; k++ {
-		pk[k] = 0
-	}
+	utils.Zerobytes(pk[0:hash.Size])
 	return -1
 }
 

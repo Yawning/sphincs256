@@ -41,7 +41,7 @@ type leafaddr struct {
 }
 
 func getSeed(seed, sk []byte, a *leafaddr) {
-	seed = seed[:seedBytes]
+//	seed = seed[:seedBytes]
 
 	var buffer [seedBytes + 8]byte
 	copy(buffer[0:seedBytes], sk[0:seedBytes])
@@ -369,6 +369,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 
 	for i := 0; i < hash.Size; i++ {
 		if root[i] != tpk[i+nMasks*hash.Size] {
+			// XXX/Yawning: Gratuitious goto.
 			goto fail
 		}
 	}
@@ -376,12 +377,10 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	if mlen != smlen {
 		panic("message length mismatch")
 	}
-	return m[messageHashSeedBytes+PublicKeySize:messageHashSeedBytes+PublicKeySize+mlen], nil
+	return m[messageHashSeedBytes+PublicKeySize : messageHashSeedBytes+PublicKeySize+mlen], nil
 
 fail:
-	for i := 0; i < mlen; i++ {
-		m[i] = 0
-	}
+	utils.Zerobytes(m[0:mlen])
 	return nil, fmt.Errorf("sphics256: signature verification failed")
 }
 
