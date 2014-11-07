@@ -1,17 +1,12 @@
 // chacha.go - sphincs256/ref/permute.[h,c], prg.[h,c]
-//
-// This is the cut down ChaCha12 implementation used in the SPHINCS-256 hash
-// function.  Since the reference code also happens to use ChaCha12 as a key
-// stretching function, this goes beyond the permute.c code and fully
-// implements ChaCha12.
-//
-// This ChaCha12 implementation is based off the portable ref implementation
-// from SUPERCOP, with minor attempts at optimization.
-//
-// Warning: Do not use this for anything other than "internally to the
-// sphincs256" package.
 
-package sphincs256
+// Package chacha implements the ChaCha12 stream cipher along with the
+// SPHINCS-256 permutation function.  It is only suitable for use as part of
+// the "sphincs256" package and should not be used for anything else.
+//
+// The implementation is based off the SUPERCOP "ref" portable C implementation
+// with the macros inlined.
+package chacha
 
 import (
 	"encoding/binary"
@@ -24,18 +19,18 @@ const (
 	chachaRounds = 12
 )
 
-type chachaCtx struct {
+type ctx struct {
 	input [16]uint32
 }
 
-func (x *chachaCtx) ivSetup(iv []byte) {
+func (x *ctx) ivSetup(iv []byte) {
 	x.input[12] = 0
 	x.input[13] = 0
 	x.input[14] = binary.LittleEndian.Uint32(iv[0:])
 	x.input[15] = binary.LittleEndian.Uint32(iv[4:])
 }
 
-func (x *chachaCtx) encryptBytes(m []byte, c []byte) {
+func (x *ctx) encryptBytes(m []byte, c []byte) {
 	var output [64]byte
 	bytes := len(m)
 	cc := c
@@ -66,16 +61,16 @@ func (x *chachaCtx) encryptBytes(m []byte, c []byte) {
 	}
 }
 
-func (x *chachaCtx) keystreamBytes(stream []byte) {
+func (x *ctx) keystreamBytes(stream []byte) {
 	for i := 0; i < len(stream); i++ {
 		stream[i] = 0
 	}
 	x.encryptBytes(stream, stream)
 }
 
-func newChachaCtx(k []byte) *chachaCtx {
+func newCtx(k []byte) *ctx {
 	var constants []byte
-	x := &chachaCtx{}
+	x := &ctx{}
 
 	x.input[4] = binary.LittleEndian.Uint32(k[0:])
 	x.input[5] = binary.LittleEndian.Uint32(k[4:])
@@ -101,21 +96,23 @@ func newChachaCtx(k []byte) *chachaCtx {
 	return x
 }
 
-func chachaKeystreamBytes(c, n, k []byte) {
-	ctx := newChachaCtx(k)
+func keystreamBytes(c, n, k []byte) {
+	ctx := newCtx(k)
 	ctx.ivSetup(n)
 	ctx.keystreamBytes(c)
 }
 
-func prg(r []byte, k []byte) {
+// Prg is the SPHINCS-256 entropy expansion routine.  It fills 'r' with the
+// ChaCha12 keystream for key 'k', with an all zero nonce.
+func Prg(r []byte, k []byte) {
 	var prgNonce [8]byte
-	if len(k) != seedBytes {
+	if len(k) != 32 {
 		panic("key length != seedBytes: " + strconv.Itoa(len(k)))
 	}
-	chachaKeystreamBytes(r, prgNonce[:], k)
+	keystreamBytes(r, prgNonce[:], k)
 }
 
-func chachaDoRounds(x *[16]uint32) {
+func doRounds(x *[16]uint32) {
 	var xx uint32
 
 	// Note: Unrolling this doesn't seem to help much.
@@ -234,14 +231,14 @@ func chachaDoRounds(x *[16]uint32) {
 	}
 }
 
-// Modified permutation variant of the salsa20_wordtobyte() routine, used by
-// SPHINCS-256's hashing.
-func chachaPermute(output, input *[64]byte) {
+// Permute is the modified permutation variant of the salsa20_wordtobyte()
+// routine, used by SPHINCS-256's hashing.
+func Permute(output, input *[64]byte) {
 	var x [16]uint32
 	for i := 0; i < len(x); i++ {
 		x[i] = binary.LittleEndian.Uint32(input[4*i:])
 	}
-	chachaDoRounds(&x)
+	doRounds(&x)
 	// for (i = 0;i < 16;++i) x[i] = PLUS(x[i],input[i]); // XXX: Bad idea if we later xor the input to the state?
 	for i := 0; i < len(x); i++ {
 		binary.LittleEndian.PutUint32(output[4*i:], x[i])
@@ -251,7 +248,7 @@ func chachaPermute(output, input *[64]byte) {
 func salsa20WordToByte(output *[64]byte, input *[16]uint32) {
 	var x [16]uint32
 	copy(x[:], input[:])
-	chachaDoRounds(&x)
+	doRounds(&x)
 	for i := 0; i < len(x); i++ {
 		x[i] += input[i]
 		binary.LittleEndian.PutUint32(output[4*i:], x[i])

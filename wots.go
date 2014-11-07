@@ -2,11 +2,13 @@
 
 package sphincs256
 
+import "github.com/yawning/sphincs256/chacha"
+
 func wotsExpandSeed(outseeds []byte, inseed []byte) {
 	outseeds = outseeds[:wotsL*hashBytes]
 	inseed = inseed[:seedBytes]
 
-	prg(outseeds, inseed[:])
+	chacha.Prg(outseeds, inseed[:])
 }
 
 func genChain(out, seed []byte, masks []byte, chainlen int) {

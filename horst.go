@@ -2,9 +2,11 @@
 
 package sphincs256
 
+import "github.com/yawning/sphincs256/chacha"
+
 func horstExpandSeed(outseeds []byte, inseed *[seedBytes]byte) {
 	outseeds = outseeds[:horstT*horstSkBytes]
-	prg(outseeds, inseed[:])
+	chacha.Prg(outseeds, inseed[:])
 }
 
 func horstSign(sig []byte, pk *[hashBytes]byte, sigbytes *uint64, m []byte, seed *[seedBytes]byte, masks []byte, mHash []byte) {

@@ -9,6 +9,8 @@ package sphincs256
 import (
 	"github.com/dchest/blake256"
 	"github.com/dchest/blake512"
+
+	"github.com/yawning/sphincs256/chacha"
 )
 
 const (
@@ -37,11 +39,11 @@ func hash2nN(out, in []byte) {
 		x[i] = in[i]
 		x[i+32] = hashc[i]
 	}
-	chachaPermute(&x, &x)
+	chacha.Permute(&x, &x)
 	for i := 0; i < 32; i++ {
 		x[i] ^= in[i+32]
 	}
-	chachaPermute(&x, &x)
+	chacha.Permute(&x, &x)
 	for i := 0; i < 32; i++ {
 		out[i] = x[i]
 	}
@@ -61,7 +63,7 @@ func hashNN(out, in []byte) {
 		x[i] = in[i]
 		x[i+32] = hashc[i]
 	}
-	chachaPermute(&x, &x)
+	chacha.Permute(&x, &x)
 	for i := 0; i < 32; i++ {
 		out[i] = x[i]
 	}

@@ -1,6 +1,6 @@
 // chacha_test.go - ChaCha12 test vectors
 
-package sphincs256
+package chacha
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestChachaKeystreamBytes(t *testing.T) {
+func TestKeystreamBytes(t *testing.T) {
 	// Test vectors liberated from the academic oppressors at Stanford.  Not
 	// exhaustive, just enough to satisfy myself that the implementation works.
 	//
@@ -233,7 +233,7 @@ func TestChachaKeystreamBytes(t *testing.T) {
 		output := make([]byte, v.msgLen)
 		n := len(output)
 
-		chachaKeystreamBytes(output[:], nonce, key)
+		keystreamBytes(output[:], nonce, key)
 
 		begining, _ := hex.DecodeString(v.begining)
 		l := len(begining)
