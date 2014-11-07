@@ -11,13 +11,9 @@ Dependencies:
  * https://github.com/dchest/blake512
 
 Implementor's notes:
- * As far as I can tell the use of ChaCha12 for the entropy expansion routine is
-   an arbitrary one.  Since the hash permutation uses ChaCha12 anyway, there is
-   no reason not to keep this the same.
- * Likewise, the use of BLAKE-256 and BLAKE-512 also appears to be arbitrary,
-   and any other cryptographic hash functions can be used, as long as identical
-   algorithms are used at signing and verification time, and the digest length
-   is as expected.
+ * It is possible to replace the digest functions used, as long as certain
+   minimal properties (in particular second pre-image resistance) are present
+   in the replacement algorithms and the digest lengths are identical.
  * As far as the port goes, it is rather naive and mostly emphasizes correctness
    over anything else.  Since this is based off the reference implementation and
    is using pure Go for everything, it is extremely slow.  If better performance
