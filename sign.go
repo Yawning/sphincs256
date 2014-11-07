@@ -44,10 +44,7 @@ func getSeed(seed, sk []byte, a *leafaddr) {
 	seed = seed[:seedBytes]
 
 	var buffer [seedBytes + 8]byte
-
-	for i := 0; i < seedBytes; i++ {
-		buffer[i] = sk[i]
-	}
+	copy(buffer[0:seedBytes], sk[0:seedBytes])
 
 	// 4 bits to encode level.
 	t := uint64(a.level)
@@ -56,9 +53,7 @@ func getSeed(seed, sk []byte, a *leafaddr) {
 	// 5 bits to encode leaf.
 	t |= uint64(a.subleaf) << 59
 
-	for i := uint64(0); i < 8; i++ {
-		buffer[seedBytes+i] = byte((t >> (8 * i)) & 0xff)
-	}
+	binary.LittleEndian.PutUint64(buffer[seedBytes:], t)
 	hash.Varlen(seed, buffer[:])
 }
 
@@ -108,28 +103,18 @@ func treehash(node []byte, height int, sk []byte, leaf *leafaddr, masks []byte) 
 			stackoffset--
 		}
 	}
-	for i := 0; i < hash.Size; i++ {
-		node[i] = stack[i]
-	}
+	copy(node[0:hash.Size], stack[0:hash.Size])
 }
 
 func validateAuthpath(root, leaf *[hash.Size]byte, leafidx uint, authpath, masks []byte, height uint) {
 	var buffer [2 * hash.Size]byte
 
 	if leafidx&1 != 0 {
-		for j := 0; j < hash.Size; j++ {
-			buffer[hash.Size+j] = leaf[j]
-		}
-		for j := 0; j < hash.Size; j++ {
-			buffer[j] = authpath[j]
-		}
+		copy(buffer[hash.Size:hash.Size*2], leaf[0:hash.Size])
+		copy(buffer[0:hash.Size], authpath[0:hash.Size])
 	} else {
-		for j := 0; j < hash.Size; j++ {
-			buffer[j] = leaf[j]
-		}
-		for j := 0; j < hash.Size; j++ {
-			buffer[hash.Size+j] = authpath[j]
-		}
+		copy(buffer[0:hash.Size], leaf[0:hash.Size])
+		copy(buffer[hash.Size:hash.Size*2], authpath[0:hash.Size])
 	}
 	authpath = authpath[hash.Size:]
 
@@ -137,15 +122,10 @@ func validateAuthpath(root, leaf *[hash.Size]byte, leafidx uint, authpath, masks
 		leafidx >>= 1
 		if leafidx&1 != 0 {
 			hash.Hash_2n_n_mask(buffer[hash.Size:], buffer[:], masks[2*(wots.LogL+i)*hash.Size:])
-			for j := 0; j < hash.Size; j++ {
-				buffer[j] = authpath[j]
-			}
+			copy(buffer[0:hash.Size], authpath[0:hash.Size])
 		} else {
 			hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(wots.LogL+i)*hash.Size:])
-			for j := 0; j < hash.Size; j++ {
-				buffer[hash.Size+j] = authpath[j]
-			}
-
+			copy(buffer[hash.Size:hash.Size*2], authpath[0:hash.Size])
 		}
 		authpath = authpath[hash.Size:]
 	}
@@ -226,9 +206,8 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 	var root [hash.Size]byte
 	var seed [seedBytes]byte
 	var masks [nMasks * hash.Size]byte
-	for i := 0; i < PrivateKeySize; i++ {
-		tsk[i] = privateKey[i]
-	}
+
+	copy(tsk[:], privateKey[:])
 
 	// Create leafidx deterministically.
 	{
@@ -271,10 +250,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 
 	smlen := 0
 
-	for i := 0; i < messageHashSeedBytes; i++ {
-		sm[i] = r[i]
-	}
-
+	copy(sm[0:messageHashSeedBytes], r[:])
 	sm = sm[messageHashSeedBytes:]
 	smlen += messageHashSeedBytes
 
@@ -287,11 +263,9 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 	smlen += (totalTreeHeight + 7) / 8
 
 	getSeed(seed[:], tsk[:], &a)
-	var horstSigbytes uint64
-	horst.Sign(sm, &root, &horstSigbytes, m, &seed, masks[:], mH[:])
-
-	sm = sm[horstSigbytes:]
-	smlen += int(horstSigbytes)
+	horst.Sign(sm, &root, m, &seed, masks[:], mH[:])
+	sm = sm[horst.SigBytes:]
+	smlen += int(horst.SigBytes)
 
 	for i := 0; i < nLevels; i++ {
 		a.level = i
@@ -341,16 +315,12 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	}
 	m := make([]byte, smlen)
 
-	for i := 0; i < PublicKeySize; i++ {
-		tpk[i] = pk[i]
-	}
+	copy(tpk[:], pk[:])
 
 	// Construct message hash.
 	{
 		var r [messageHashSeedBytes]byte
-		for i := 0; i < messageHashSeedBytes; i++ {
-			r[i] = sm[i]
-		}
+		copy(r[:], sm[:])
 
 		scratch := m
 
@@ -406,11 +376,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	if mlen != smlen {
 		panic("message length mismatch")
 	}
-	for i := 0; i < mlen; i++ {
-		m[i] = m[i+messageHashSeedBytes+PublicKeySize]
-	}
-
-	return m[:mlen], nil
+	return m[messageHashSeedBytes+PublicKeySize:messageHashSeedBytes+PublicKeySize+mlen], nil
 
 fail:
 	for i := 0; i < mlen; i++ {

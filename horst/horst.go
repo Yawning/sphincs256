@@ -22,7 +22,7 @@ func horstExpandSeed(outseeds []byte, inseed *[SeedBytes]byte) {
 	chacha.Prg(outseeds, inseed[:])
 }
 
-func Sign(sig []byte, pk *[hash.Size]byte, sigbytes *uint64, m []byte, seed *[SeedBytes]byte, masks []byte, mHash []byte) {
+func Sign(sig []byte, pk *[hash.Size]byte, m []byte, seed *[SeedBytes]byte, masks []byte, mHash []byte) {
 	masks = masks[:2*LogT*hash.Size]
 	mHash = mHash[:hash.MsgSize]
 
@@ -49,20 +49,16 @@ func Sign(sig []byte, pk *[hash.Size]byte, sigbytes *uint64, m []byte, seed *[Se
 	}
 
 	// First write 64 hashes from level 10 to the signature.
-	for j := 63 * hash.Size; j < 127*hash.Size; j++ {
-		sig[sigpos] = tree[j]
-		sigpos++
-	}
+	copy(sig[0:64*hash.Size], tree[63*hash.Size:127*hash.Size])
+	sigpos += 64*hash.Size
 
 	// Signature consists of horstK parts; each part of secret key and
 	// LogT-4 auth-path hashes.
 	for i := 0; i < K; i++ {
 		idx := uint(mHash[2*i]) + (uint(mHash[2*i+1]) << 8)
 
-		for k := uint(0); k < SkBytes; k++ {
-			sig[sigpos] = sk[idx*SkBytes+k]
-			sigpos++
-		}
+		copy(sig[sigpos:sigpos+SkBytes], sk[idx*SkBytes:(idx+1)*SkBytes])
+		sigpos += SkBytes
 
 		idx += T - 1
 		for j := 0; j < LogT-6; j++ {
@@ -72,18 +68,13 @@ func Sign(sig []byte, pk *[hash.Size]byte, sigbytes *uint64, m []byte, seed *[Se
 			} else {
 				idx = idx - 1
 			}
-			for k := uint(0); k < hash.Size; k++ {
-				sig[sigpos] = tree[idx*hash.Size+k]
-				sigpos++
-			}
+			copy(sig[sigpos:sigpos+hash.Size], tree[idx*hash.Size:(idx+1)*hash.Size])
+			sigpos += hash.Size
 			idx = (idx - 1) / 2 // parent node
 		}
 	}
 
-	for i := 0; i < hash.Size; i++ {
-		pk[i] = tree[i]
-	}
-	*sigbytes = SigBytes
+	copy(pk[0:hash.Size], tree[0:hash.Size])
 }
 
 func Verify(pk, sig, m, masks, mHash []byte) int {
@@ -101,14 +92,10 @@ func Verify(pk, sig, m, masks, mHash []byte) int {
 
 		if idx&1 == 0 {
 			hash.Hash_n_n(buffer[:], sig)
-			for k := 0; k < hash.Size; k++ {
-				buffer[hash.Size+k] = sig[SkBytes+k]
-			}
+			copy(buffer[hash.Size:hash.Size*2], sig[SkBytes:SkBytes+hash.Size])
 		} else {
 			hash.Hash_n_n(buffer[hash.Size:], sig)
-			for k := 0; k < hash.Size; k++ {
-				buffer[k] = sig[SkBytes+k]
-			}
+			copy(buffer[0:hash.Size], sig[SkBytes:SkBytes+hash.Size])
 		}
 		sig = sig[SkBytes+hash.Size:]
 
@@ -117,14 +104,10 @@ func Verify(pk, sig, m, masks, mHash []byte) int {
 
 			if idx&1 == 0 {
 				hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(j-1)*hash.Size:])
-				for k := 0; k < hash.Size; k++ {
-					buffer[hash.Size+k] = sig[k]
-				}
+				copy(buffer[hash.Size:hash.Size*2], sig[0:hash.Size])
 			} else {
 				hash.Hash_2n_n_mask(buffer[hash.Size:], buffer[:], masks[2*(j-1)*hash.Size:])
-				for k := 0; k < hash.Size; k++ {
-					buffer[k] = sig[k]
-				}
+				copy(buffer[0:hash.Size], sig[0:hash.Size])
 			}
 			sig = sig[hash.Size:]
 		}

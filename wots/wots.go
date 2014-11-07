@@ -20,7 +20,7 @@ const (
 	SigBytes = L * hash.Size
 )
 
-func wotsExpandSeed(outseeds []byte, inseed []byte) {
+func expandSeed(outseeds []byte, inseed []byte) {
 	outseeds = outseeds[:L*hash.Size]
 	inseed = inseed[:SeedBytes]
 
@@ -31,9 +31,7 @@ func genChain(out, seed []byte, masks []byte, chainlen int) {
 	out = out[:hash.Size]
 	seed = seed[:hash.Size]
 
-	for i := 0; i < hash.Size; i++ {
-		out[i] = seed[i]
-	}
+	copy(out[0:hash.Size], seed[0:hash.Size])
 	for i := 0; i < chainlen && i < W; i++ {
 		mask := masks[i*hash.Size:]
 		hash.Hash_n_n_mask(out[:], out[:], mask)
@@ -45,7 +43,7 @@ func Pkgen(pk []byte, sk []byte, masks []byte) {
 	sk = sk[:SeedBytes]
 	masks = masks[:(W-1)*hash.Size]
 
-	wotsExpandSeed(pk, sk)
+	expandSeed(pk, sk)
 	for i := 0; i < L; i++ {
 		genChain(pk[i*hash.Size:], pk[i*hash.Size:], masks, W-1)
 	}
@@ -70,7 +68,7 @@ func Sign(sig []byte, msg *[hash.Size]byte, sk *[SeedBytes]byte, masks []byte) {
 			c >>= 4
 		}
 
-		wotsExpandSeed(sig, sk[:])
+		expandSeed(sig, sk[:])
 		for i = 0; i < L; i++ {
 			genChain(sig[i*hash.Size:], sig[i*hash.Size:], masks, basew[i])
 		}
@@ -90,7 +88,7 @@ func Sign(sig []byte, msg *[hash.Size]byte, sk *[SeedBytes]byte, masks []byte) {
 			c >>= 4
 		}
 
-		wotsExpandSeed(sig, sk[:])
+		expandSeed(sig, sk[:])
 		for i = 0; i < L; i++ {
 			genChain(sig[i*hash.Size:], sig[i*hash.Size:], masks, basew[i])
 		}
