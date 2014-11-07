@@ -12,6 +12,7 @@ import (
 	"github.com/yawning/sphincs256/hash"
 	"github.com/yawning/sphincs256/horst"
 	"github.com/yawning/sphincs256/utils"
+	"github.com/yawning/sphincs256/wots"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 	// PrivateKeySize is the length of a SPINCS-256 private key in bytes.
 	PrivateKeySize = seedBytes + PublicKeySize - hashBytes + skRandSeedBytes
 
-	cryptoBytes = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wotsSigBytes + totalTreeHeight*hashBytes
+	cryptoBytes = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wots.SigBytes + totalTreeHeight*hashBytes
 )
 
 type leafaddr struct {
@@ -53,8 +54,8 @@ func getSeed(seed, sk []byte, a *leafaddr) {
 }
 
 func lTree(leaf, wotsPk, masks []byte) {
-	l := wotsL
-	for i := 0; i < wotsLogL; i++ {
+	l := wots.L
+	for i := 0; i < wots.LogL; i++ {
 		for j := 0; j < l>>1; j++ {
 			hash.Hash_2n_n_mask(wotsPk[j*hashBytes:], wotsPk[j*2*hashBytes:], masks[i*2*hashBytes:])
 		}
@@ -71,10 +72,10 @@ func lTree(leaf, wotsPk, masks []byte) {
 
 func genLeafWots(leaf, masks, sk []byte, a *leafaddr) {
 	var seed [seedBytes]byte
-	var pk [wotsL * hashBytes]byte
+	var pk [wots.L * hashBytes]byte
 
 	getSeed(seed[:], sk, a)
-	wotsPkgen(pk[:], seed[:], masks)
+	wots.Pkgen(pk[:], seed[:], masks)
 	lTree(leaf, pk[:], masks)
 }
 
@@ -92,7 +93,7 @@ func treehash(node []byte, height int, sk []byte, leaf *leafaddr, masks []byte) 
 		stackoffset++
 		for stackoffset > 1 && stacklevels[stackoffset-1] == stacklevels[stackoffset-2] {
 			// Masks.
-			maskoffset = 2 * (stacklevels[stackoffset-1] + wotsLogL) * hashBytes
+			maskoffset = 2 * (stacklevels[stackoffset-1] + wots.LogL) * hashBytes
 			hash.Hash_2n_n_mask(stack[(stackoffset-2)*hashBytes:], stack[(stackoffset-2)*hashBytes:], masks[maskoffset:])
 			stacklevels[stackoffset-2]++
 			stackoffset--
@@ -126,12 +127,12 @@ func validateAuthpath(root, leaf *[hashBytes]byte, leafidx uint, authpath, masks
 	for i := uint(0); i < height-1; i++ {
 		leafidx >>= 1
 		if leafidx&1 != 0 {
-			hash.Hash_2n_n_mask(buffer[hashBytes:], buffer[:], masks[2*(wotsLogL+i)*hashBytes:])
+			hash.Hash_2n_n_mask(buffer[hashBytes:], buffer[:], masks[2*(wots.LogL+i)*hashBytes:])
 			for j := 0; j < hashBytes; j++ {
 				buffer[j] = authpath[j]
 			}
 		} else {
-			hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(wotsLogL+i)*hashBytes:])
+			hash.Hash_2n_n_mask(buffer[:], buffer[:], masks[2*(wots.LogL+i)*hashBytes:])
 			for j := 0; j < hashBytes; j++ {
 				buffer[hashBytes+j] = authpath[j]
 			}
@@ -139,31 +140,31 @@ func validateAuthpath(root, leaf *[hashBytes]byte, leafidx uint, authpath, masks
 		}
 		authpath = authpath[hashBytes:]
 	}
-	hash.Hash_2n_n_mask(root[:], buffer[:], masks[2*(wotsLogL+height-1)*hashBytes:])
+	hash.Hash_2n_n_mask(root[:], buffer[:], masks[2*(wots.LogL+height-1)*hashBytes:])
 }
 
 func computeAuthpathWots(root *[hashBytes]byte, authpath []byte, a *leafaddr, sk, masks []byte, height uint) {
 	ta := *a
 	var tree [2 * (1 << subtreeHeight) * hashBytes]byte
 	var seed [(1 << subtreeHeight) * seedBytes]byte
-	var pk [(1 << subtreeHeight) * wotsL * hashBytes]byte
+	var pk [(1 << subtreeHeight) * wots.L * hashBytes]byte
 
 	// Level 0.
 	for ta.subleaf = 0; ta.subleaf < 1<<subtreeHeight; ta.subleaf++ {
 		getSeed(seed[ta.subleaf*seedBytes:], sk, &ta)
 	}
 	for ta.subleaf = 0; ta.subleaf < 1<<subtreeHeight; ta.subleaf++ {
-		wotsPkgen(pk[ta.subleaf*wotsL*hashBytes:], seed[ta.subleaf*seedBytes:], masks)
+		wots.Pkgen(pk[ta.subleaf*wots.L*hashBytes:], seed[ta.subleaf*seedBytes:], masks)
 	}
 	for ta.subleaf = 0; ta.subleaf < 1<<subtreeHeight; ta.subleaf++ {
-		lTree(tree[(1<<subtreeHeight)*hashBytes+ta.subleaf*hashBytes:], pk[ta.subleaf*wotsL*hashBytes:], masks)
+		lTree(tree[(1<<subtreeHeight)*hashBytes+ta.subleaf*hashBytes:], pk[ta.subleaf*wots.L*hashBytes:], masks)
 	}
 
 	// Tree.
 	level := 0
 	for i := 1 << subtreeHeight; i > 0; i >>= 1 {
 		for j := 0; j < i; j += 2 {
-			hash.Hash_2n_n_mask(tree[(i>>1)*hashBytes+(j>>1)*hashBytes:], tree[i*hashBytes+j*hashBytes:], masks[2*(wotsLogL+level)*hashBytes:])
+			hash.Hash_2n_n_mask(tree[(i>>1)*hashBytes+(j>>1)*hashBytes:], tree[i*hashBytes+j*hashBytes:], masks[2*(wots.LogL+level)*hashBytes:])
 		}
 		level++
 	}
@@ -287,9 +288,9 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		a.level = i
 
 		getSeed(seed[:], tsk[:], &a) // XXX: Don't use the same address as for horst_sign here!
-		wotsSign(sm, &root, &seed, masks[:])
-		sm = sm[wotsSigBytes:]
-		smlen += wotsSigBytes
+		wots.Sign(sm, &root, &seed, masks[:])
+		sm = sm[wots.SigBytes:]
+		smlen += wots.SigBytes
 
 		computeAuthpathWots(&root, sm, &a, tsk[:], masks[:], subtreeHeight)
 		sm = sm[subtreeHeight*hashBytes:]
@@ -319,7 +320,7 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	mlen := smlen - cryptoBytes
 
 	var leafidx uint64
-	var wotsPk [wotsL * hashBytes]byte
+	var wotsPk [wots.L * hashBytes]byte
 	var pkhash [hashBytes]byte
 	var root [hashBytes]byte
 	var sig [cryptoBytes]byte
@@ -374,10 +375,10 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	smlen -= horst.SigBytes
 
 	for i := 0; i < nLevels; i++ {
-		wotsVerify(&wotsPk, sigp, &root, tpk[:])
+		wots.Verify(&wotsPk, sigp, &root, tpk[:])
 
-		sigp = sigp[wotsSigBytes:]
-		smlen -= wotsSigBytes
+		sigp = sigp[wots.SigBytes:]
+		smlen -= wots.SigBytes
 
 		lTree(pkhash[:], wotsPk[:], tpk[:])
 		validateAuthpath(&root, &pkhash, uint(leafidx&0x1f), sigp, tpk[:], subtreeHeight)

@@ -11,7 +11,7 @@ const (
 	totalTreeHeight = 60
 	nLevels         = totalTreeHeight / subtreeHeight
 	seedBytes       = 32
-	wotsLogW        = 4
+//	wotsLogW        = 4
 
 	skRandSeedBytes      = 32
 	messageHashSeedBytes = 32
@@ -24,6 +24,7 @@ const (
 	horstSigBytes = 64*hashBytes + (((horstLogT-6)*hashBytes)+horstSkBytes)*horstK
 	*/
 
+	/*
 	wotsW  = 1 << wotsLogW
 	wotsL1 = (256 + wotsLogW - 1) / wotsLogW
 	//	wotsL = 133 // for wotsW == 4
@@ -31,6 +32,7 @@ const (
 	wotsL        = 67 // for wotsW == 16
 	wotsLogL     = 7  // for wotsW == 16
 	wotsSigBytes = wotsL * hashBytes
+	*/
 
 	hashBytes    = 32 // Has to be log(horstT)*horstK/8
 //	msgHashBytes = 64
