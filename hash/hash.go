@@ -48,9 +48,7 @@ func Hash_2n_n(out, in []byte) {
 		x[i] ^= in[i+32]
 	}
 	chacha.Permute(&x, &x)
-	for i := 0; i < 32; i++ {
-		out[i] = x[i]
-	}
+	copy(out[:Size], x[:])
 }
 
 func Hash_2n_n_mask(out, in, mask []byte) {
@@ -68,9 +66,7 @@ func Hash_n_n(out, in []byte) {
 		x[i+32] = hashc[i]
 	}
 	chacha.Permute(&x, &x)
-	for i := 0; i < 32; i++ {
-		out[i] = x[i]
-	}
+	copy(out[:Size], x[:])
 }
 
 func Hash_n_n_mask(out, in, mask []byte) {
@@ -79,4 +75,10 @@ func Hash_n_n_mask(out, in, mask []byte) {
 		buf[i] = in[i] ^ mask[i]
 	}
 	Hash_n_n(out, buf[:])
+}
+
+func init() {
+	if Size != 32 {
+		panic("current code only supports 32-byte hashes")
+	}
 }
