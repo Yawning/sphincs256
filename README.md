@@ -18,11 +18,11 @@ Implementor's notes:
    over anything else.  Since this is based off the reference implementation and
    is using pure Go for everything, it is extremely slow.  If better performance
    is desired, send a patch to use the "avx2" code.
- * golang not having C/C++ style "const" still makes me really sad.
+ * Minimal testing vs the base SUPERCOP "ref" implementation was done, however
+   correctness is not guaranteed.  I am to blame for any errors.
 
 TODO:
  * Clean up the code.
- * Test vs the SUPERCOP implementation.
  * Make it go fast.
  * Support detached signatures.
 
