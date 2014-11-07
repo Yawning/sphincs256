@@ -45,9 +45,8 @@ func getSeed(seed, sk []byte, a *leafaddr) {
 	t |= uint64(a.subleaf) << 59
 
 	for i := uint64(0); i < 8; i++ {
-		buffer[seedBytes+i] = byte((t >> 8 * i) & 0xff)
+		buffer[seedBytes+i] = byte((t >> (8 * i)) & 0xff)
 	}
-
 	varlenHash(seed, buffer[:])
 }
 
@@ -55,11 +54,12 @@ func lTree(leaf, wotsPk, masks []byte) {
 	l := wotsL
 	for i := 0; i < wotsLogL; i++ {
 		for j := 0; j < l>>1; j++ {
-			hash2nNMask(wotsPk[(l>>1)*hashBytes:], wotsPk[j*2*hashBytes:], masks[i*2*hashBytes:])
+			hash2nNMask(wotsPk[j*hashBytes:], wotsPk[j*2*hashBytes:], masks[i*2*hashBytes:])
 		}
 
 		if l&1 != 0 {
 			copy(wotsPk[(l>>1)*hashBytes:((l>>1)+1)*hashBytes], wotsPk[(l-1)*hashBytes:])
+			l = (l >> 1) + 1
 		} else {
 			l = l >> 1
 		}
@@ -83,6 +83,7 @@ func treehash(node []byte, height int, sk []byte, leaf *leafaddr, masks []byte) 
 	var stackoffset, maskoffset uint
 
 	lastnode := a.subleaf + (1 << uint(height))
+
 	for ; a.subleaf < lastnode; a.subleaf++ {
 		genLeafWots(stack[stackoffset*hashBytes:], masks, sk, &a)
 		stacklevels[stackoffset] = 0
