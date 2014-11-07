@@ -3,18 +3,22 @@
 package sphincs256
 
 import (
-	"github.com/yawning/sphincs256/horst"
+	_ "github.com/yawning/sphincs256/horst"
 )
 
 const (
+	/*
 	subtreeHeight   = 5
 	totalTreeHeight = 60
 	nLevels         = totalTreeHeight / subtreeHeight
 	seedBytes       = 32
-//	wotsLogW        = 4
+	wotsLogW        = 4
+	*/
 
+	/*
 	skRandSeedBytes      = 32
 	messageHashSeedBytes = 32
+	*/
 
 	/*
 	horstLogT     = 16
@@ -37,5 +41,7 @@ const (
 //	hashBytes    = 32 // Has to be log(horstT)*horstK/8
 //	msgHashBytes = 64
 
+/*
 	nMasks = 2 * horst.LogT // has to be the max of (2*(subtreeHeight+wotsLogL)) and (wotsW-1) and 2*horstLogT
+	*/
 )

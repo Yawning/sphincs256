@@ -24,6 +24,14 @@ const (
 
 	// SignatureSize is the length of a SPHINCS-256 signature in bytes.
 	SignatureSize = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wots.SigBytes + totalTreeHeight*hash.Size
+
+	subtreeHeight   = 5
+	totalTreeHeight = 60
+	nLevels         = totalTreeHeight / subtreeHeight
+	seedBytes       = 32
+	skRandSeedBytes      = 32
+	messageHashSeedBytes = 32
+	nMasks = 2 * horst.LogT // has to be the max of (2*(subtreeHeight+wotsLogL)) and (wotsW-1) and 2*horstLogT
 )
 
 type leafaddr struct {
@@ -412,8 +420,14 @@ fail:
 }
 
 func init() {
+	// Note: Since I split horst and wots into their own packages, validate
+	// that SeedBytes is consistent.
+	if horst.SeedBytes != seedBytes || wots.SeedBytes != seedBytes {
+		panic("SEED_BYTES must equal horst.SeedBytes and wots.SeedBytes")
+	}
+
 	if totalTreeHeight-subtreeHeight > 64 {
-		panic("totalTreeHeight-subtreeHeight must be at most 64")
+		panic("TOTALTREE_HEIGHT-SUBTREE_HEIGHT must be at most 64")
 	}
 	if nLevels > 15 || nLevels < 8 {
 		// XXX/Yawning: The original code's compile time check for this
