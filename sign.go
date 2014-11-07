@@ -25,13 +25,13 @@ const (
 	// SignatureSize is the length of a SPHINCS-256 signature in bytes.
 	SignatureSize = messageHashSeedBytes + (totalTreeHeight+7)/8 + horst.SigBytes + (totalTreeHeight/subtreeHeight)*wots.SigBytes + totalTreeHeight*hash.Size
 
-	subtreeHeight   = 5
-	totalTreeHeight = 60
-	nLevels         = totalTreeHeight / subtreeHeight
-	seedBytes       = 32
+	subtreeHeight        = 5
+	totalTreeHeight      = 60
+	nLevels              = totalTreeHeight / subtreeHeight
+	seedBytes            = 32
 	skRandSeedBytes      = 32
 	messageHashSeedBytes = 32
-	nMasks = 2 * horst.LogT // has to be the max of (2*(subtreeHeight+wotsLogL)) and (wotsW-1) and 2*horstLogT
+	nMasks               = 2 * horst.LogT // has to be the max of (2*(subtreeHeight+wotsLogL)) and (wotsW-1) and 2*horstLogT
 )
 
 type leafaddr struct {

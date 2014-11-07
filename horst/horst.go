@@ -1,6 +1,6 @@
 // horst.go - sphincs256/ref/horst.[h,c]
 
-package horst 
+package horst
 
 import (
 	"github.com/yawning/sphincs256/chacha"
@@ -10,11 +10,11 @@ import (
 const (
 	SeedBytes = 32
 
-	LogT = 16
-	T = 1 << LogT
-	K = 32
-	SkBytes = 32
-	SigBytes = 64 * hash.Size + (((LogT-6)*hash.Size)+SkBytes)*K
+	LogT     = 16
+	T        = 1 << LogT
+	K        = 32
+	SkBytes  = 32
+	SigBytes = 64*hash.Size + (((LogT-6)*hash.Size)+SkBytes)*K
 )
 
 func horstExpandSeed(outseeds []byte, inseed *[SeedBytes]byte) {

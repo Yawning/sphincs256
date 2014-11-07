@@ -10,9 +10,9 @@ import (
 const (
 	SeedBytes = 32
 
-	LogW        = 4
-	W  = 1 << LogW
-	L1 = (256 + LogW - 1) / LogW
+	LogW = 4
+	W    = 1 << LogW
+	L1   = (256 + LogW - 1) / LogW
 	//	L = 133 // for W == 4
 	//	L = 90 // for W == 8
 	L        = 67 // for W == 16

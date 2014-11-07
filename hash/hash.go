@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	Size = 32
+	Size    = 32
 	MsgSize = 64
-	hashc = "expand 32-byte to 64-byte state!"
+	hashc   = "expand 32-byte to 64-byte state!"
 )
 
 func Varlen(out, in []byte) {
