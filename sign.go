@@ -5,6 +5,7 @@
 package sphincs256
 
 import (
+	"crypto/subtle"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -318,12 +319,8 @@ func Verify(publicKey *[PublicKeySize]byte, message []byte, signature *[Signatur
 		sigp = sigp[subtreeHeight*hash.Size:]
 	}
 
-	ok := true
-	for i := 0; i < hash.Size; i++ {
-		ok = ok && (root[i] == tpk[i+nMasks*hash.Size])
-	}
-
-	return ok
+	tpkRewt := tpk[nMasks*hash.Size:]
+	return subtle.ConstantTimeCompare(root[:], tpkRewt) == 1
 }
 
 // Open takes a signed message and public key and returns the message if the
