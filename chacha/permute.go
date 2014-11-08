@@ -1,3 +1,5 @@
+// +build !i386,!amd64
+
 package chacha
 
 import (
