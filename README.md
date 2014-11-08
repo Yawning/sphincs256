@@ -11,6 +11,9 @@ Dependencies:
  * https://github.com/dchest/blake512
 
 Implementor's notes:
+ * Unlike the SUPERCOP signature algorithms, this implementation produces
+   detached signatures.  "signature | message" is byte for byte identical to the
+   SUPERCOP output so use append() if you want that.
  * It is possible to replace the digest functions used, as long as certain
    minimal properties (in particular second pre-image resistance) are present
    in the replacement algorithms and the digest lengths are identical.
@@ -23,7 +26,6 @@ Implementor's notes:
 
 TODO:
  * Make it go fast.
- * Support detached signatures.
 
 [sphincs](http://sphincs.cr.yp.to/sphincs-20141001.pdf) 26pp. (PDF)
 Daniel J. Bernstein, Daira Hopwood, Andreas Hülsing, Tanja Lange,

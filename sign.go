@@ -13,6 +13,8 @@ import (
 	"github.com/yawning/sphincs256/horst"
 	"github.com/yawning/sphincs256/utils"
 	"github.com/yawning/sphincs256/wots"
+
+	"github.com/dchest/blake512"
 )
 
 const (
@@ -188,20 +190,12 @@ func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, privateKey *[P
 	return
 }
 
-// Sign signs the message with privateKey and returns the combined signature and
-// message.
-func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
-	// Figure out how long the returned buffer needs to be, and rename some
-	// things to match crypto_sign.
-	mlen := len(message)
-	smlenExpected := SignatureSize + mlen
-	sm := make([]byte, smlenExpected)
-	m := message
-	ret := sm
-
+// Sign signs the message with privateKey and returns the signature.
+func Sign(privateKey *[PrivateKeySize]byte, message []byte) *[SignatureSize]byte {
+	var sm [SignatureSize]byte
 	var leafidx uint64
 	var r [messageHashSeedBytes]byte
-	var mH [hash.MsgSize]byte
+	var mH []byte
 	var tsk [PrivateKeySize]byte
 	var root [hash.Size]byte
 	var seed [seedBytes]byte
@@ -211,21 +205,20 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 
 	// Create leafidx deterministically.
 	{
-		// Shift scratch upwards so we can reuse msg later.
+		// Shift scratch upwards for convinience.
 		scratch := sm[SignatureSize-skRandSeedBytes:]
 
-		// Copy message to scratch backwards to handle m = sm overlap.
-		for i := mlen; i > 0; i-- {
-			scratch[skRandSeedBytes+i-1] = m[i-1]
-		}
 		// Copy secret random seed to scratch.
 		copy(scratch[:skRandSeedBytes], tsk[PrivateKeySize-skRandSeedBytes:])
 
+		// XXX: Why Blake 512?
+		h := blake512.New()
+		h.Write(scratch[:skRandSeedBytes])
+		h.Write(message)
+		rnd := h.Sum(nil)
+
 		// XXX/Yawning: The original code doesn't do endian conversion when
 		// using rnd.  This is probably wrong, so do the Right Thing(TM).
-		var rnd [64]byte
-		hash.Msg(rnd[:], scratch[:skRandSeedBytes+mlen]) // XXX: Why Blake 512?
-
 		leafidx = binary.LittleEndian.Uint64(rnd[0:]) & 0xfffffffffffffff
 		copy(r[:], rnd[16:])
 
@@ -241,105 +234,70 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) []byte {
 		copy(pk[:nMasks*hash.Size], tsk[seedBytes:])
 		treehash(pk[nMasks*hash.Size:], subtreeHeight, tsk[:], &a, pk)
 
-		// Message already on the right spot.
-		hash.Msg(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
+		h.Reset()
+		h.Write(scratch[:messageHashSeedBytes+PublicKeySize])
+		h.Write(message)
+		mH = h.Sum(nil)
 	}
 
 	// Use unique value $d$ for HORST address.
 	a := leafaddr{level: nLevels, subleaf: int(leafidx & ((1 << subtreeHeight) - 1)), subtree: leafidx >> subtreeHeight}
 
-	smlen := 0
+	sigp := sm[:]
 
-	copy(sm[0:messageHashSeedBytes], r[:])
-	sm = sm[messageHashSeedBytes:]
-	smlen += messageHashSeedBytes
+	copy(sigp[0:messageHashSeedBytes], r[:])
+	sigp = sigp[messageHashSeedBytes:]
 
 	copy(masks[:], tsk[seedBytes:])
 	for i := uint64(0); i < (totalTreeHeight+7)/8; i++ {
-		sm[i] = byte((leafidx >> (8 * i)) & 0xff)
+		sigp[i] = byte((leafidx >> (8 * i)) & 0xff)
 	}
-
-	sm = sm[(totalTreeHeight+7)/8:]
-	smlen += (totalTreeHeight + 7) / 8
+	sigp = sigp[(totalTreeHeight+7)/8:]
 
 	getSeed(seed[:], tsk[:], &a)
-	horst.Sign(sm, &root, m, &seed, masks[:], mH[:])
-	sm = sm[horst.SigBytes:]
-	smlen += int(horst.SigBytes)
+	horst.Sign(sigp, &root, message, &seed, masks[:], mH)
+	sigp = sigp[horst.SigBytes:]
 
 	for i := 0; i < nLevels; i++ {
 		a.level = i
 
 		getSeed(seed[:], tsk[:], &a) // XXX: Don't use the same address as for horst_sign here!
-		wots.Sign(sm, &root, &seed, masks[:])
-		sm = sm[wots.SigBytes:]
-		smlen += wots.SigBytes
+		wots.Sign(sigp, &root, &seed, masks[:])
+		sigp = sigp[wots.SigBytes:]
 
-		computeAuthpathWots(&root, sm, &a, tsk[:], masks[:], subtreeHeight)
-		sm = sm[subtreeHeight*hash.Size:]
-		smlen += subtreeHeight * hash.Size
+		computeAuthpathWots(&root, sigp, &a, tsk[:], masks[:], subtreeHeight)
+		sigp = sigp[subtreeHeight*hash.Size:]
 
 		a.subleaf = int(a.subtree & ((1 << subtreeHeight) - 1))
 		a.subtree >>= subtreeHeight
 	}
 
-	smlen += mlen
-
 	utils.Zerobytes(tsk[:])
 
-	if smlen != smlenExpected {
-		panic("signature length mismatch")
-	}
-
-	return ret[:smlen]
+	return &sm
 }
 
-// Open takes a signed message and public key and returns the message if the
+// Verify takes a public key, message and signature and returns true if the
 // signature is valid.
-func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err error) {
-	sm := message
-	smlen := len(message)
-	pk := publicKey[:]
-	mlen := smlen - SignatureSize
-
+func Verify(publicKey *[PublicKeySize]byte, message []byte, signature *[SignatureSize]byte) bool {
 	var leafidx uint64
 	var wotsPk [wots.L * hash.Size]byte
 	var pkhash [hash.Size]byte
 	var root [hash.Size]byte
-	var sig [SignatureSize]byte
 	var tpk [PublicKeySize]byte
-	var mH [hash.MsgSize]byte
+	var mH []byte
 
-	if smlen < SignatureSize {
-		return nil, fmt.Errorf("sphincs256: message length is too short to be valid")
-	}
-	m := make([]byte, smlen)
-
-	copy(tpk[:], pk[:])
+	copy(tpk[:], publicKey[:])
 
 	// Construct message hash.
-	{
-		var r [messageHashSeedBytes]byte
-		copy(r[:], sm[:])
+	h := blake512.New()
+	h.Write(signature[:messageHashSeedBytes])
+	h.Write(tpk[:])
+	h.Write(message)
+	mH = h.Sum(nil)
 
-		scratch := m
-
-		copy(sig[:], sm[:])
-		copy(scratch[messageHashSeedBytes+PublicKeySize:], sm[SignatureSize:SignatureSize+mlen])
-
-		// Copy R.
-		copy(scratch[:], r[:])
-
-		// Copy Public Key.
-		copy(scratch[messageHashSeedBytes:], tpk[:])
-
-		hash.Msg(mH[:], scratch[:mlen+messageHashSeedBytes+PublicKeySize])
-	}
-	sigp := sig[:]
-
+	sigp := signature[:]
 	sigp = sigp[messageHashSeedBytes:]
-	smlen -= messageHashSeedBytes
-
 	for i := uint64(0); i < (totalTreeHeight+7)/8; i++ {
 		leafidx |= uint64(sigp[i]) << (8 * i)
 	}
@@ -348,40 +306,41 @@ func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err erro
 	horst.Verify(root[:], sigp[(totalTreeHeight+7)/8:], sigp[SignatureSize-messageHashSeedBytes:], tpk[:], mH[:])
 
 	sigp = sigp[(totalTreeHeight+7)/8:]
-	smlen -= (totalTreeHeight + 7) / 8
-
 	sigp = sigp[horst.SigBytes:]
-	smlen -= horst.SigBytes
 
 	for i := 0; i < nLevels; i++ {
 		wots.Verify(&wotsPk, sigp, &root, tpk[:])
-
 		sigp = sigp[wots.SigBytes:]
-		smlen -= wots.SigBytes
 
 		lTree(pkhash[:], wotsPk[:], tpk[:])
 		validateAuthpath(&root, &pkhash, uint(leafidx&0x1f), sigp, tpk[:], subtreeHeight)
 		leafidx >>= 5
-
 		sigp = sigp[subtreeHeight*hash.Size:]
-		smlen -= subtreeHeight * hash.Size
 	}
 
+	ok := true
 	for i := 0; i < hash.Size; i++ {
-		if root[i] != tpk[i+nMasks*hash.Size] {
-			// XXX/Yawning: Gratuitious goto.
-			goto fail
-		}
+		ok = ok && (root[i] == tpk[i+nMasks*hash.Size])
 	}
 
-	if mlen != smlen {
-		panic("message length mismatch")
-	}
-	return m[messageHashSeedBytes+PublicKeySize : messageHashSeedBytes+PublicKeySize+mlen], nil
+	return ok
+}
 
-fail:
-	utils.Zerobytes(m[0:mlen])
-	return nil, fmt.Errorf("sphics256: signature verification failed")
+// Open takes a signed message and public key and returns the message if the
+// signature is valid.
+func Open(publicKey *[PublicKeySize]byte, message []byte) (body []byte, err error) {
+	if len(message) < SignatureSize {
+		return nil, fmt.Errorf("sphincs256: message length is too short to be valid")
+	}
+
+	var sig [SignatureSize]byte
+	copy(sig[:], message[:SignatureSize])
+	body = message[SignatureSize:]
+
+	if Verify(publicKey, body, &sig) == false {
+		return nil, fmt.Errorf("sphics256: signature verification failed")
+	}
+	return body, nil
 }
 
 func init() {

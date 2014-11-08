@@ -10,28 +10,18 @@ package hash
 
 import (
 	"github.com/dchest/blake256"
-	"github.com/dchest/blake512"
 
 	"github.com/yawning/sphincs256/chacha"
 	"github.com/yawning/sphincs256/utils"
 )
 
 const (
-	Size    = 32
-	MsgSize = 64
+	Size    = blake256.Size
 	hashc   = "expand 32-byte to 64-byte state!"
 )
 
 func Varlen(out, in []byte) {
 	h := blake256.New()
-	h.Write(in)
-	tmp := h.Sum(nil)
-	copy(out[:], tmp[:])
-	utils.Zerobytes(tmp[:])
-}
-
-func Msg(out, in []byte) {
-	h := blake512.New()
 	h.Write(in)
 	tmp := h.Sum(nil)
 	copy(out[:], tmp[:])

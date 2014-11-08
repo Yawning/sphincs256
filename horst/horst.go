@@ -6,6 +6,8 @@ import (
 	"github.com/yawning/sphincs256/chacha"
 	"github.com/yawning/sphincs256/hash"
 	"github.com/yawning/sphincs256/utils"
+
+	"github.com/dchest/blake512"
 )
 
 const (
@@ -157,7 +159,7 @@ func init() {
 	if SkBytes != hash.Size {
 		panic("need to have HORST_SKBYTES == HASH_BYTES")
 	}
-	if K != hash.MsgSize/2 {
+	if K != blake512.Size/2 {
 		panic("need to have HORST_K == MSGHASH_BYTES/2")
 	}
 }
