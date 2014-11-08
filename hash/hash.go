@@ -34,11 +34,11 @@ func Hash_2n_n(out, in []byte) {
 		x[i] = in[i]
 		x[i+32] = hashc[i]
 	}
-	chacha.Permute(&x, &x)
+	chacha.Permute(&x)
 	for i := 0; i < 32; i++ {
 		x[i] ^= in[i+32]
 	}
-	chacha.Permute(&x, &x)
+	chacha.Permute(&x)
 	copy(out[:Size], x[:])
 }
 
@@ -56,7 +56,7 @@ func Hash_n_n(out, in []byte) {
 		x[i] = in[i]
 		x[i+32] = hashc[i]
 	}
-	chacha.Permute(&x, &x)
+	chacha.Permute(&x)
 	copy(out[:Size], x[:])
 }
 

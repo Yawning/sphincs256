@@ -113,136 +113,124 @@ func Prg(r []byte, k []byte) {
 }
 
 func doRounds(x *[16]uint32) {
-	var xx uint32
+	x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15 := x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]
 
-	// Note: Unrolling this doesn't seem to help much.
 	for i := chachaRounds; i > 0; i -= 2 {
+		var xx uint32
+
 		// quarterround(x, 0, 4, 8, 12)
-		x[0] += x[4]
-		xx = x[12] ^ x[0]
-		x[12] = (xx << 16) | (xx >> 16)
-		x[8] += x[12]
-		xx = x[4] ^ x[8]
-		x[4] = (xx << 12) | (xx >> 20)
-		x[0] += x[4]
-		xx = x[12] ^ x[0]
-		x[12] = (xx << 8) | (xx >> 24)
-		x[8] += x[12]
-		xx = x[4] ^ x[8]
-		x[4] = (xx << 7) | (xx >> 25)
+		x0 += x4
+		xx = x12 ^ x0
+		x12 = (xx << 16) | (xx >> 16)
+		x8 += x12
+		xx = x4 ^ x8
+		x4 = (xx << 12) | (xx >> 20)
+		x0 += x4
+		xx = x12 ^ x0
+		x12 = (xx << 8) | (xx >> 24)
+		x8 += x12
+		xx = x4 ^ x8
+		x4 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 1, 5, 9, 13)
-		x[1] += x[5]
-		xx = x[13] ^ x[1]
-		x[13] = (xx << 16) | (xx >> 16)
-		x[9] += x[13]
-		xx = x[5] ^ x[9]
-		x[5] = (xx << 12) | (xx >> 20)
-		x[1] += x[5]
-		xx = x[13] ^ x[1]
-		x[13] = (xx << 8) | (xx >> 24)
-		x[9] += x[13]
-		xx = x[5] ^ x[9]
-		x[5] = (xx << 7) | (xx >> 25)
+		x1 += x5
+		xx = x13 ^ x1
+		x13 = (xx << 16) | (xx >> 16)
+		x9 += x13
+		xx = x5 ^ x9
+		x5 = (xx << 12) | (xx >> 20)
+		x1 += x5
+		xx = x13 ^ x1
+		x13 = (xx << 8) | (xx >> 24)
+		x9 += x13
+		xx = x5 ^ x9
+		x5 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 2, 6, 10, 14)
-		x[2] += x[6]
-		xx = x[14] ^ x[2]
-		x[14] = (xx << 16) | (xx >> 16)
-		x[10] += x[14]
-		xx = x[6] ^ x[10]
-		x[6] = (xx << 12) | (xx >> 20)
-		x[2] += x[6]
-		xx = x[14] ^ x[2]
-		x[14] = (xx << 8) | (xx >> 24)
-		x[10] += x[14]
-		xx = x[6] ^ x[10]
-		x[6] = (xx << 7) | (xx >> 25)
+		x2 += x6
+		xx = x14 ^ x2
+		x14 = (xx << 16) | (xx >> 16)
+		x10 += x14
+		xx = x6 ^ x10
+		x6 = (xx << 12) | (xx >> 20)
+		x2 += x6
+		xx = x14 ^ x2
+		x14 = (xx << 8) | (xx >> 24)
+		x10 += x14
+		xx = x6 ^ x10
+		x6 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 3, 7, 11, 15)
-		x[3] += x[7]
-		xx = x[15] ^ x[3]
-		x[15] = (xx << 16) | (xx >> 16)
-		x[11] += x[15]
-		xx = x[7] ^ x[11]
-		x[7] = (xx << 12) | (xx >> 20)
-		x[3] += x[7]
-		xx = x[15] ^ x[3]
-		x[15] = (xx << 8) | (xx >> 24)
-		x[11] += x[15]
-		xx = x[7] ^ x[11]
-		x[7] = (xx << 7) | (xx >> 25)
+		x3 += x7
+		xx = x15 ^ x3
+		x15 = (xx << 16) | (xx >> 16)
+		x11 += x15
+		xx = x7 ^ x11
+		x7 = (xx << 12) | (xx >> 20)
+		x3 += x7
+		xx = x15 ^ x3
+		x15 = (xx << 8) | (xx >> 24)
+		x11 += x15
+		xx = x7 ^ x11
+		x7 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 0, 5, 10, 15)
-		x[0] += x[5]
-		xx = x[15] ^ x[0]
-		x[15] = (xx << 16) | (xx >> 16)
-		x[10] += x[15]
-		xx = x[5] ^ x[10]
-		x[5] = (xx << 12) | (xx >> 20)
-		x[0] += x[5]
-		xx = x[15] ^ x[0]
-		x[15] = (xx << 8) | (xx >> 24)
-		x[10] += x[15]
-		xx = x[5] ^ x[10]
-		x[5] = (xx << 7) | (xx >> 25)
+		x0 += x5
+		xx = x15 ^ x0
+		x15 = (xx << 16) | (xx >> 16)
+		x10 += x15
+		xx = x5 ^ x10
+		x5 = (xx << 12) | (xx >> 20)
+		x0 += x5
+		xx = x15 ^ x0
+		x15 = (xx << 8) | (xx >> 24)
+		x10 += x15
+		xx = x5 ^ x10
+		x5 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 1, 6, 11, 12)
-		x[1] += x[6]
-		xx = x[12] ^ x[1]
-		x[12] = (xx << 16) | (xx >> 16)
-		x[11] += x[12]
-		xx = x[6] ^ x[11]
-		x[6] = (xx << 12) | (xx >> 20)
-		x[1] += x[6]
-		xx = x[12] ^ x[1]
-		x[12] = (xx << 8) | (xx >> 24)
-		x[11] += x[12]
-		xx = x[6] ^ x[11]
-		x[6] = (xx << 7) | (xx >> 25)
+		x1 += x6
+		xx = x12 ^ x1
+		x12 = (xx << 16) | (xx >> 16)
+		x11 += x12
+		xx = x6 ^ x11
+		x6 = (xx << 12) | (xx >> 20)
+		x1 += x6
+		xx = x12 ^ x1
+		x12 = (xx << 8) | (xx >> 24)
+		x11 += x12
+		xx = x6 ^ x11
+		x6 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 2, 7, 8, 13)
-		x[2] += x[7]
-		xx = x[13] ^ x[2]
-		x[13] = (xx << 16) | (xx >> 16)
-		x[8] += x[13]
-		xx = x[7] ^ x[8]
-		x[7] = (xx << 12) | (xx >> 20)
-		x[2] += x[7]
-		xx = x[13] ^ x[2]
-		x[13] = (xx << 8) | (xx >> 24)
-		x[8] += x[13]
-		xx = x[7] ^ x[8]
-		x[7] = (xx << 7) | (xx >> 25)
+		x2 += x7
+		xx = x13 ^ x2
+		x13 = (xx << 16) | (xx >> 16)
+		x8 += x13
+		xx = x7 ^ x8
+		x7 = (xx << 12) | (xx >> 20)
+		x2 += x7
+		xx = x13 ^ x2
+		x13 = (xx << 8) | (xx >> 24)
+		x8 += x13
+		xx = x7 ^ x8
+		x7 = (xx << 7) | (xx >> 25)
 
 		// quarterround(x, 3, 4, 9, 14)
-		x[3] += x[4]
-		xx = x[14] ^ x[3]
-		x[14] = (xx << 16) | (xx >> 16)
-		x[9] += x[14]
-		xx = x[4] ^ x[9]
-		x[4] = (xx << 12) | (xx >> 20)
-		x[3] += x[4]
-		xx = x[14] ^ x[3]
-		x[14] = (xx << 8) | (xx >> 24)
-		x[9] += x[14]
-		xx = x[4] ^ x[9]
-		x[4] = (xx << 7) | (xx >> 25)
+		x3 += x4
+		xx = x14 ^ x3
+		x14 = (xx << 16) | (xx >> 16)
+		x9 += x14
+		xx = x4 ^ x9
+		x4 = (xx << 12) | (xx >> 20)
+		x3 += x4
+		xx = x14 ^ x3
+		x14 = (xx << 8) | (xx >> 24)
+		x9 += x14
+		xx = x4 ^ x9
+		x4 = (xx << 7) | (xx >> 25)
 	}
-}
-
-// Permute is the modified permutation variant of the salsa20_wordtobyte()
-// routine, used by SPHINCS-256's hashing.
-func Permute(output, input *[64]byte) {
-	var x [16]uint32
-	for i := 0; i < len(x); i++ {
-		x[i] = binary.LittleEndian.Uint32(input[4*i:])
-	}
-	doRounds(&x)
-	// for (i = 0;i < 16;++i) x[i] = PLUS(x[i],input[i]); // XXX: Bad idea if we later xor the input to the state?
-	for i := 0; i < len(x); i++ {
-		binary.LittleEndian.PutUint32(output[4*i:], x[i])
-	}
+	x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15] = x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15
 }
 
 func salsa20WordToByte(output *[64]byte, input *[16]uint32) {
