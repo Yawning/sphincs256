@@ -83,3 +83,50 @@ func TestKnownAnswer(t *testing.T) {
 		t.Fatalf("opened message does not match test message")
 	}
 }
+
+var benchMsg = []byte("In relating the circumstances which have led to my confinement within this refuge for the demented, I am aware that my present position will create a natural doubt of the authenticity of my narrative.")
+
+func BenchmarkSign(b *testing.B) {
+	pk, sk, err := GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatalf("failed GenerateKey(): %s", err)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		sm := Sign(sk, benchMsg)
+		b.StopTimer()
+
+		opened, err := Open(pk, sm)
+		if err != nil {
+			b.Fatalf("failed Open(): %s", err)
+		}
+		if bytes.Compare(opened, benchMsg) != 0 {
+			b.Fatalf("opened message does not match test message")
+		}
+		b.StartTimer()
+	}
+}
+
+func BenchmarkOpen(b *testing.B) {
+	pk, sk, err := GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatalf("failed GenerateKey(): %s", err)
+	}
+	sm := Sign(sk, benchMsg)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		opened, err := Open(pk, sm)
+		if err != nil {
+			b.Fatalf("failed Open(): %s", err)
+		}
+		b.StopTimer()
+
+		if bytes.Compare(opened, benchMsg) != 0 {
+			b.Fatalf("opened message does not match test message")
+		}
+		b.StartTimer()
+	}
+
+}
